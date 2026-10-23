@@ -2,6 +2,8 @@
 
 **Agente inteligente que automatiza candidaturas a vagas de emprego usando IA (Gemini) + Browser Automation (Playwright MCP).**
 
+**Estado atual:** `DRY_RUN=true` executa uma [simulação local em processo separado](docs/dry-run.md), sem Chrome/CDP, LLM ou notificações. O bootstrap aceita somente `DRY_RUN=true` e `LIVE_SUBMISSION_ENABLED=false`. O gateway live da SPEC continua pendente. Instalação Windows: [guia PR-01](docs/PR-01-estabilizacao.md).
+
 O bot navega por portais de vagas (Gupy, Vagas.com, LinkedIn, Indeed), analisa cada vaga, preenche formulários automaticamente com respostas variadas e naturais, e gerencia todo o processo de candidatura — tudo usando seu navegador Chrome já logado.
 
 ---
@@ -12,7 +14,7 @@ O bot navega por portais de vagas (Gupy, Vagas.com, LinkedIn, Indeed), analisa c
 >
 > O bot **não tenta "resolver" CAPTCHA automaticamente** (isso não é possível para reCAPTCHA/Turnstile, cujo token depende do contexto do navegador). Quando encontra um, ele te avisa no **Telegram** e **você resolve manualmente** no Chrome aberto, respondendo **OK** para continuar. O caminho com mais chance é o **LinkedIn Easy Apply** e formulários simples; portais com muro anti-bot logo na entrada continuam inviáveis.
 >
-> Mesmo com o CAPTCHA resolvido à mão, o fluxo completo (preencher e enviar candidaturas reais em cada portal) **ainda não foi validado de ponta a ponta**. Use sempre o modo `DRY_RUN=true` primeiro. Contribuições e testes são bem-vindos.
+> O fluxo de envio real continua não validado e desabilitado. A execução atual em DRY_RUN não usa esse fluxo: avalia vagas sintéticas e recusa ações de browser em uma simulação local. Isso não implementa o gateway de submissão.
 
 ---
 
@@ -81,7 +83,7 @@ O bot navega por portais de vagas (Gupy, Vagas.com, LinkedIn, Indeed), analisa c
 
 ### 1. Pré-requisitos
 
-- **Node.js** 18+
+- **Node.js** 24.22.1 LTS (versão em `.nvmrc`), npm 11+; Chrome instalado para PDF e smoke
 - **Google Chrome** instalado
 - **Chave da API do Gemini** ([Google AI Studio](https://aistudio.google.com/apikey))
 
@@ -92,43 +94,45 @@ O bot navega por portais de vagas (Gupy, Vagas.com, LinkedIn, Indeed), analisa c
 ```bash
 git clone https://github.com/LuisMIguelFurlanettoSousa/auto-apply-bot.git
 cd auto-apply-bot
-npm install
+npm ci
 ```
 
 ### 3. Configuração
 
-```bash
+```powershell
 # Copie os arquivos de exemplo
-cp .env.example .env
-cp config/perfil.example.json config/perfil.json
-cp config/curriculos.example.json config/curriculos.json
-cp config/respostas.example.json config/respostas.json
+Copy-Item .env.example .env
+Copy-Item config/perfil.example.json config/perfil.json
+Copy-Item config/curriculos.example.json config/curriculos.json
+Copy-Item config/respostas.example.json config/respostas.json
 
 # Edite com seus dados
-nano .env                    # Chave do Gemini + configs
-nano config/perfil.json      # Seus dados pessoais/profissionais
-nano config/sites.json       # Sites e URLs de busca
-nano config/respostas.json   # Respostas pré-definidas para formulários
+notepad .env
+notepad config/perfil.json
+notepad config/sites.json
+notepad config/respostas.json
 ```
 
 ### 4. Prepare o Chrome
 
-```bash
-# Abra o Chrome com porta de debug habilitada (requer --user-data-dir separado)
-google-chrome --remote-debugging-port=9222 --user-data-dir="$HOME/.chrome-debug-profile"
-
-# Faça login manualmente nos sites de vagas (Gupy, LinkedIn, etc.)
-# Na primeira vez o Chrome abrirá "limpo" — as sessões ficam salvas nesse perfil separado
+```powershell
+# Opcional; abre about:blank em perfil separado. Não faça login nesta etapa.
+npm run chrome
 ```
 
 ### 5. Execute
 
-```bash
-# Modo dry-run (recomendado para testar)
-DRY_RUN=true npm start
+```powershell
+# Validação local sem chave de LLM ou portais reais
+npm run lint
+npm run typecheck
+npm run build
+npm run test:run
+npm run test:smoke
 
-# Modo produção
-npm start
+# Inicialização do agente (não faz parte dos testes locais deste PR)
+# npm start / npm run start:built exigem configuração pessoal e Chrome/CDP.
+# Não executar contra portais reais até a implementação dos gates.
 ```
 
 ---
@@ -139,7 +143,7 @@ npm start
 
 | Variável | Descrição | Padrão |
 |---|---|---|
-| `GEMINI_API_KEY` | Chave da API do Google Gemini | *obrigatório* |
+| `GEMINI_API_KEY` | Chave do agente legado; desnecessária na simulação local | Vazio |
 | `CDP_ENDPOINT` | Endpoint CDP do Chrome (use `127.0.0.1`, não `localhost`, p/ evitar `ECONNREFUSED ::1`) | `http://127.0.0.1:9222` |
 | `GEMINI_MODEL` | Modelo do Gemini (flash é ~16x mais barato) | `gemini-2.5-flash` |
 | `LIMITE_DIARIO` | Max candidaturas por dia | `10` |
@@ -148,7 +152,10 @@ npm start
 | `DELAY_MAX` | Delay máximo entre ações (ms) | `5000` |
 | `SCORE_MINIMO` | Score mínimo para aplicar (1-10) | `6` |
 | `CUSTO_MAX_USD` | Teto de custo por execução em USD (0 = desativado) | `0` |
-| `DRY_RUN` | Modo teste — checkpoint bloqueia envio e registro grava como `dry-run` | `true` |
+| `DRY_RUN` | Simulação local isolada, sem browser/LLM/notificações; `false` rejeitado | `true` |
+| `LIVE_SUBMISSION_ENABLED` | PR-01 rejeita `true`; gateway ainda não implementado | `false` |
+| `EXECUTION_MODE` | `ASSISTED` ou `SUPERVISED_AUTONOMOUS`; rótulo validado, sem implementar a orquestração futura | `SUPERVISED_AUTONOMOUS` |
+| `CHROME_PATH` | Caminho do executável Chrome caso não seja detectado automaticamente | Detecção por SO |
 | `DASHBOARD_PORT` | Porta do dashboard web | `3000` |
 | `TELEGRAM_BOT_TOKEN` | Token do bot Telegram | *opcional* |
 | `TELEGRAM_CHAT_ID` | Chat ID do Telegram | *opcional* |
@@ -219,12 +226,12 @@ Score final entre 1-10. Só aplica se `score >= SCORE_MINIMO`.
 
 A filosofia: o **código** garante o que a arquitetura permite garantir (a gravação), e os demais pontos de risco passam por checkpoints explícitos — em vez de deixar tudo na "boa vontade" de um prompt de 200 linhas.
 
-- **Gate de registro (garantia real, determinística)** — `registrar_candidatura` recusa **no código** qualquer vaga abaixo do `SCORE_MINIMO` ou em blacklist, e em `DRY_RUN=true` grava sempre como `dry-run` (nunca `aplicado`), aconteça o que acontecer com o LLM. Essa é a salvaguarda final.
-- **Checkpoint de envio (`confirmar_envio`)** — o agente passa por ele antes de cada clique de envio; em dry-run responde "bloqueado" e aplica o `MAX_POR_EXECUCAO`. É **cooperativo**: o clique em si é uma ação de browser que o agente controla, então o checkpoint reduz risco e conta envios, mas não é uma barreira física. (Reforçá-lo com mais código não ajudaria — a arquitetura LLM+browser não permite uma trava física do clique; por isso o gate de registro é o que de fato protege.)
+- **Gate de registro** — recusa registros abaixo do score ou em blacklist e marca simulações no banco. Não impede um envio anterior no site.
+- **Checkpoint legado (`confirmar_envio`)** — não é usado como barreira do novo DRY_RUN. A simulação não inicia o agente/MCP e recusa essas capacidades; para habilitar live continua necessário o gateway do PR-04. Veja a [ADR](docs/adr/0001-isolamento-submissao.md).
 - **Teto de custo** — `CUSTO_MAX_USD` interrompe o loop se o gasto passar do limite.
 - **Abandono de portal** — se um portal bloqueia na entrada (Cloudflare), o bot abandona aquele portal e segue para o próximo, em vez de insistir.
 
-> ⚠️ **Risco de conta**: o bot usa seu Chrome **logado** e automatizar portais viola os ToS (especialmente o LinkedIn). Comece em `DRY_RUN=true`, use volumes baixos e, de preferência, uma conta não-principal.
+> Nesta etapa, use somente fixtures locais. O PR-01 não habilita uso de contas reais; políticas por plataforma e o gateway serão tratados nos PRs seguintes.
 
 ---
 
@@ -431,7 +438,7 @@ auto-apply-bot/
 
 - **Seus dados pessoais NUNCA são commitados** (protegidos pelo `.gitignore`)
 - O bot usa **seu Chrome já logado** — nenhuma senha é armazenada no código
-- Modo **dry-run** para testar com segurança antes de ativar
+- Modo **dry-run** local isolado; gateway live pendente
 - Screenshots salvos apenas localmente
 - Notificações via HTTPS (Telegram API)
 

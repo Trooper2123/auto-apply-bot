@@ -1,4 +1,6 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js';
+import { createRequire } from 'node:module';
+import path from 'node:path';
 import { StdioClientTransport } from '@modelcontextprotocol/sdk/client/stdio.js';
 
 let mcpClient: Client | null = null;
@@ -54,16 +56,17 @@ export async function verificarChromeCDP(cdpEndpoint: string, timeoutMs = 3000):
   }
 }
 
-export async function conectarPlaywrightMCP(cdpEndpoint: string): Promise<Client> {
+export async function conectarPlaywrightMCP(cdpEndpoint: string, dryRun = true): Promise<Client> {
+  if (dryRun) throw new Error('DRY_RUN nao permite conectar ao browser/MCP.');
   console.log(`[MCP] Conectando ao Playwright MCP via CDP: ${cdpEndpoint}`);
 
   // Versão pinada (não @latest): baixar a versão mais recente a cada execução é
   // um vetor de supply chain — código novo rodaria com acesso ao seu navegador/
   // CDP sem revisão. Atualize a versão conscientemente quando desejar.
   const transport = new StdioClientTransport({
-    command: 'npx',
+    command: process.execPath,
     args: [
-      '@playwright/mcp@0.0.76',
+      path.join(path.dirname(createRequire(import.meta.url).resolve('@playwright/mcp/package.json')), 'cli.js'),
       '--cdp-endpoint',
       cdpEndpoint,
     ],

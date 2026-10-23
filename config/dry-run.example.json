@@ -1,0 +1,17 @@
+{
+  "perfil": {
+    "stackPrincipal": ["Java", "Spring Boot", "PostgreSQL"],
+    "cidade": "Brasília, DF",
+    "modelosAceitos": ["remoto"]
+  },
+  "vagas": [
+    { "id": "java-pleno-remoto", "titulo": "Backend Java Pleno — exemplo sintético", "empresa": "Empresa Fictícia", "tecnologias_pedidas": "Java, Spring Boot e PostgreSQL", "senioridade": "pleno", "modelo_trabalho": "remoto", "localizacao": "Brasil" },
+    { "id": "presencial-fora-da-cidade", "titulo": "Backend Java — exemplo incompatível", "empresa": "Outra Empresa Fictícia", "tecnologias_pedidas": "Java", "senioridade": "pleno", "modelo_trabalho": "presencial", "localizacao": "São Paulo, SP" }
+  ],
+  "acoes": [
+    { "nome": "confirmar_envio", "args": {} },
+    { "nome": "browser_click", "args": { "element": "Enviar candidatura" } },
+    { "nome": "browser_press_key", "args": { "key": "Enter" } },
+    { "nome": "browser_evaluate", "args": { "function": "() => document.forms[0].requestSubmit()" } }
+  ]
+}

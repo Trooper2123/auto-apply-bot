@@ -1,9 +1,9 @@
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'fs';
-import { execFileSync } from 'child_process';
+import { writeFileSync, mkdirSync, existsSync } from 'fs';
 import { createHash } from 'crypto';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { log } from './logger.js';
+import { converterHTMLParaPDF } from './chrome.js';
 import { gerarTextoAux } from './llm-adapter.js';
 import { anonimizarPerfil, desanonimizar, contemPlaceholderResidual } from './anonimizacao.js';
 import { detectarSkillsFabricadas, limparMarkdown, skillsReaisDoPerfil } from './validacao-skills.js';
@@ -11,7 +11,6 @@ import type { Perfil } from './types.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TAILORED_DIR = path.resolve(__dirname, '..', 'curriculos', '_tailored');
-const BASE_HTML_PATH = path.resolve(__dirname, '..', 'curriculos', '_base', 'template.html');
 
 // Cache em memória para evitar gerar o mesmo currículo 2x na mesma execução
 const cacheGerados = new Map<string, string>();
@@ -244,21 +243,7 @@ export async function gerarCurriculoTailored(
 
   // Converter HTML → PDF via Chrome headless
   try {
-    const chromePath = detectarChrome();
-    // execFileSync (array de args, sem shell): nenhum metacaractere em caminhos
-    // pode escapar para o shell. Antes era um execSync com string interpolada.
-    execFileSync(
-      chromePath,
-      [
-        '--headless=new',
-        '--disable-gpu',
-        '--no-sandbox',
-        `--print-to-pdf=${caminhoPDF}`,
-        '--no-pdf-header-footer',
-        `file://${caminhoHTML}`,
-      ],
-      { timeout: 15000, stdio: 'pipe' },
-    );
+    await converterHTMLParaPDF(caminhoHTML, caminhoPDF);
     log('TOOL', `PDF tailored gerado: ${nomePDF}`);
   } catch (error) {
     const msg = error instanceof Error ? error.message : String(error);
@@ -287,28 +272,4 @@ function validarHTML(html: string, perfil: Perfil): { valido: boolean; motivo: s
     };
   }
   return { valido: true, motivo: '' };
-}
-
-// ========== DETECÇÃO DO CHROME ==========
-
-function detectarChrome(): string {
-  const candidatos = [
-    'google-chrome',
-    'google-chrome-stable',
-    '/usr/bin/google-chrome',
-    '/usr/bin/google-chrome-stable',
-    'chromium-browser',
-    'chromium',
-  ];
-
-  for (const candidato of candidatos) {
-    try {
-      execFileSync('which', [candidato], { stdio: 'pipe' });
-      return candidato;
-    } catch {
-      // Tentar próximo
-    }
-  }
-
-  return 'google-chrome'; // Fallback
 }

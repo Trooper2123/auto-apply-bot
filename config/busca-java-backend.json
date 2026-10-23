@@ -1,0 +1,9 @@
+{
+  "cargos": ["Backend Developer", "Java Developer", "Software Engineer"],
+  "senioridade": ["Pleno", "Mid-Level"],
+  "tecnologias": ["Java", "Kotlin", "Spring Boot", "AWS", "PostgreSQL"],
+  "localizacao": { "remoto": ["Brasil", "Brazil"], "hibrido": ["Brasilia", "Distrito Federal", "DF"] },
+  "salarioMinimo": null,
+  "scoreMinimo": 8,
+  "politicasSubmissao": { "LINKEDIN": "DENY", "GUPY": "REVIEW_ONLY", "INDEED": "REVIEW_ONLY", "CORPORATE_ATS": "DENY_UNTIL_ADAPTER_VALIDATED", "OTHER": "DENY" }
+}

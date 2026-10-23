@@ -20,11 +20,10 @@ const MAX_HISTORICO = 30;
 const RECOVERY_PATH = path.resolve(__dirname, '..', 'data', 'recovery.json');
 
 function buildSystemPrompt(perfil: Perfil, sites: SitesConfig, config: AgenteConfig): string {
-  const { limiteDiario, dryRun, scoreMinimo } = config;
+  const { limiteDiario, scoreMinimo } = config;
   return `
 Voce e um agente inteligente de candidatura automatica a vagas de emprego.
 Voce controla um navegador real (Chrome do usuario, ja logado nos sites) atraves das browser tools.
-${dryRun ? '\n** MODO DRY-RUN ATIVO: faca TODO o processo normalmente (navegar, analisar, preencher formularios) mas NAO envie de verdade. O sistema BLOQUEIA o envio automaticamente quando voce chama confirmar_envio. Registre a candidatura com registrar_candidatura (sera gravada como dry-run). **\n' : ''}
 
 ## Seu Objetivo
 Navegar pelos sites configurados, buscar vagas relevantes e se candidatar automaticamente.
@@ -239,11 +238,12 @@ Quando terminar todos os sites ou atingir o limite diario, faca um resumo:
 export function construirConfigGeracao(
   mcpClient: Client,
   systemPrompt: string,
+  dryRun = true,
 ): GenerateContentConfig {
   return {
     systemInstruction: systemPrompt,
     automaticFunctionCalling: { disable: true },
-    tools: [
+    tools: dryRun ? [] : [
       mcpToTool(mcpClient),
       { functionDeclarations: customToolDeclarations },
     ],
@@ -256,6 +256,7 @@ export async function executarAgente(
   sites: SitesConfig,
   config: AgenteConfig,
 ): Promise<string> {
+  if (config.dryRun) throw new Error('DRY_RUN exige simulacao local isolada; acesso ao agente/browser negado.');
   const ai = new GoogleGenAI({ apiKey: config.geminiApiKey });
   const executarTool = criarExecutorDeTools(perfil, config);
   const systemPrompt = buildSystemPrompt(perfil, sites, config);
@@ -306,7 +307,7 @@ Lembre-se: use aguardar entre cada acao, verifique duplicatas, e varie as respos
       const response = await ai.models.generateContent({
         model: config.geminiModel,
         contents: history,
-        config: construirConfigGeracao(mcpClient, systemPrompt),
+        config: construirConfigGeracao(mcpClient, systemPrompt, config.dryRun),
       });
 
       // Reset do contador — iteração bem sucedida

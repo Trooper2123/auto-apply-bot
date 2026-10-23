@@ -15,7 +15,7 @@ describe('construirConfigGeracao', () => {
     const systemPrompt = 'prompt de teste';
 
     // Ação
-    const cfg = construirConfigGeracao(mcpClientFake, systemPrompt);
+    const cfg = construirConfigGeracao(mcpClientFake, systemPrompt, false);
 
     // Validação
     // Sem esta flag, o @google/genai lança "Automatic function calling with
@@ -29,7 +29,7 @@ describe('construirConfigGeracao', () => {
     const systemPrompt = 'prompt de teste';
 
     // Ação
-    const cfg = construirConfigGeracao(mcpClientFake, systemPrompt);
+    const cfg = construirConfigGeracao(mcpClientFake, systemPrompt, false);
     const tools = cfg.tools ?? [];
 
     // Validação
@@ -46,7 +46,7 @@ describe('construirConfigGeracao', () => {
     const systemPrompt = 'instrucao do sistema xyz';
 
     // Ação
-    const cfg = construirConfigGeracao(mcpClientFake, systemPrompt);
+    const cfg = construirConfigGeracao(mcpClientFake, systemPrompt, false);
 
     // Validação
     expect(cfg.systemInstruction).toBe(systemPrompt);
@@ -81,7 +81,7 @@ describe('guard de AFC do @google/genai (integracao com o SDK)', () => {
     // de tocar a rede. O que importa e NAO cair no erro de tools incompativeis.
     const ctrl = new AbortController();
     ctrl.abort();
-    const cfg = { ...construirConfigGeracao(mcpClientFake, 'x'), abortSignal: ctrl.signal };
+    const cfg = { ...construirConfigGeracao(mcpClientFake, 'x', false), abortSignal: ctrl.signal };
 
     // Ação
     let mensagemErro = '';

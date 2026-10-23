@@ -586,7 +586,15 @@ export function criarExecutorDeTools(perfil: Perfil, config: AgenteConfig) {
   // Portais que bloquearam na entrada NESTA execução — abandonados por completo
   // (não adianta tentar outras URLs/páginas; só queima iterações e risco de ban).
   const portaisBloqueados = new Set<string>();
+  const toolsLocais = new Set([
+    'pontuar_vaga', 'confirmar_envio', 'registrar_candidatura', 'verificar_ja_aplicou',
+    'contar_candidaturas_hoje', 'listar_candidaturas_recentes', 'verificar_vaga_ja_vista',
+    'registrar_vaga_vista', 'reportar_falha',
+  ]);
   return async function executarTool(name: string, args: Record<string, unknown>): Promise<string> {
+    if (config.dryRun && !toolsLocais.has(name)) {
+      return JSON.stringify({ permitido: false, codigo: 'DRY_RUN_CAPACIDADE_INDISPONIVEL' });
+    }
     switch (name) {
       case 'obter_perfil_candidato': {
         return JSON.stringify(perfil, null, 2);
@@ -642,7 +650,7 @@ export function criarExecutorDeTools(perfil: Perfil, config: AgenteConfig) {
         });
         if (sucesso) {
           log('AGENTE', `Candidatura registrada: ${tituloVaga} — ${empresa} (score: ${score})`);
-          notificarCandidatura(empresa, tituloVaga, score, isDryRun).catch(() => {});
+          if (!isDryRun) notificarCandidatura(empresa, tituloVaga, score, isDryRun).catch(() => {});
         }
         return sucesso
           ? 'REGISTRADO: Candidatura salva no banco de dados com sucesso.'

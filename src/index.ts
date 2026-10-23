@@ -1,4 +1,6 @@
 import 'dotenv/config';
+import { validarEnv } from './config.js';
+import { executarDryRunIsolado } from './dry-run.js';
 import { readFileSync } from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
@@ -26,47 +28,6 @@ function carregarConfig<T>(arquivo: string): T {
     console.error('Verifique se o arquivo existe e esta no formato JSON correto.\n');
     process.exit(1);
   }
-}
-
-function validarEnv(): AgenteConfig {
-  const geminiApiKey = process.env.GEMINI_API_KEY;
-  if (!geminiApiKey) {
-    console.error('\nERRO: GEMINI_API_KEY nao definida.');
-    console.error('Copie .env.example para .env e preencha sua chave.\n');
-    process.exit(1);
-  }
-
-  return {
-    geminiApiKey,
-    geminiModel: process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-    cdpEndpoint: process.env.CDP_ENDPOINT || 'http://127.0.0.1:9222',
-    limiteDiario: parseInt(process.env.LIMITE_DIARIO || '10', 10),
-    maxPorExecucao: parseInt(process.env.MAX_POR_EXECUCAO || '5', 10),
-    delayMin: parseInt(process.env.DELAY_MIN || '2000', 10),
-    delayMax: parseInt(process.env.DELAY_MAX || '5000', 10),
-    dryRun: process.env.DRY_RUN === 'true',
-    scoreMinimo: parseInt(process.env.SCORE_MINIMO || '6', 10),
-    custoMaxUsd: parseFloat(process.env.CUSTO_MAX_USD || '0'),
-    dashboardPort: parseInt(process.env.DASHBOARD_PORT || '3000', 10),
-    // Telegram
-    telegramBotToken: process.env.TELEGRAM_BOT_TOKEN || '',
-    telegramChatId: process.env.TELEGRAM_CHAT_ID || '',
-    // Email
-    smtpHost: process.env.SMTP_HOST || '',
-    smtpPort: parseInt(process.env.SMTP_PORT || '587', 10),
-    smtpUser: process.env.SMTP_USER || '',
-    smtpPass: process.env.SMTP_PASS || '',
-    emailDestinatario: process.env.EMAIL_DESTINATARIO || '',
-    // Cron
-    cronAtivo: process.env.CRON_ATIVO === 'true',
-    cronHorario: process.env.CRON_HORARIO || '09:00',
-    // Multi-LLM
-    llmAuxProvider: process.env.LLM_AUX_PROVIDER || 'gemini',
-    llmAuxModel: process.env.LLM_AUX_MODEL || process.env.GEMINI_MODEL || 'gemini-2.5-flash',
-    ollamaUrl: process.env.OLLAMA_URL || 'http://localhost:11434',
-    openaiApiKey: process.env.OPENAI_API_KEY || '',
-    openaiBaseUrl: process.env.OPENAI_BASE_URL || 'https://api.openai.com/v1',
-  };
 }
 
 async function executarFluxoPrincipal(config: AgenteConfig): Promise<void> {
@@ -100,7 +61,7 @@ async function executarFluxoPrincipal(config: AgenteConfig): Promise<void> {
   let mcpClient;
   try {
     await verificarChromeCDP(config.cdpEndpoint);
-    mcpClient = await conectarPlaywrightMCP(config.cdpEndpoint);
+    mcpClient = await conectarPlaywrightMCP(config.cdpEndpoint, config.dryRun);
   } catch (error) {
     log('ERRO', error instanceof Error ? error.message : String(error));
     await notificarErro('Falha ao conectar ao Chrome. Verifique se o CDP esta ativo.');
@@ -187,14 +148,15 @@ async function main() {
 
   // Valida ambiente
   const config = validarEnv();
+  if (config.dryRun) {
+    log('INFO', 'DRY_RUN local isolado: sem Chrome/CDP, LLM, portais ou notificacoes.');
+    log('INFO', await executarDryRunIsolado(config.scoreMinimo));
+    return;
+  }
   log('INFO', `Modelo: ${config.geminiModel}`);
   log('INFO', `CDP: ${config.cdpEndpoint}`);
   log('INFO', `Limite diario: ${config.limiteDiario}`);
   log('INFO', `Score minimo: ${config.scoreMinimo}/10`);
-
-  if (config.dryRun) {
-    log('WARN', '*** MODO DRY-RUN ATIVO — nenhuma candidatura sera enviada de verdade ***');
-  }
 
   // Configura notificacoes (opcionais)
   configurarTelegram(config.telegramBotToken, config.telegramChatId);

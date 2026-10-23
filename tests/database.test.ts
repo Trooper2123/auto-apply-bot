@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from 'vitest';
-import { existsSync, rmSync } from 'fs';
+import { existsSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import path from 'path';
 import {
@@ -16,12 +16,11 @@ import {
 } from '../src/database';
 
 // Diretório de teste propositalmente inexistente, para validar a criação automática.
-const dirTeste = path.join(tmpdir(), 'auto-apply-bot-test');
+const dirTeste = mkdtempSync(path.join(tmpdir(), 'auto-apply-bot-test-'));
 const dbTeste = path.join(dirTeste, 'data', 'candidaturas.db');
 
 beforeAll(() => {
-  // Cenário: garante que o diretório NÃO existe antes (simula um clone limpo)
-  rmSync(dirTeste, { recursive: true, force: true });
+  // O subdiretorio data/ ainda nao existe (simula clone limpo).
   inicializarBanco(dbTeste);
 });
 
